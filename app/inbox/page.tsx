@@ -73,88 +73,125 @@ export default function InboxPage() {
 
   useEffect(() => {
     async function initialFetch() {
-      setLoading(true)
-      await fetchMessages()
-      setLoading(false)
+      try {
+        console.log("[v0] Starting initial fetch")
+        setLoading(true)
+        await fetchMessages()
+      } catch (err) {
+        console.error("[v0] Error in initial fetch:", err)
+        setError(err instanceof Error ? err.message : "Failed to initialize inbox")
+      } finally {
+        setLoading(false)
+      }
     }
     initialFetch()
   }, [fetchMessages])
 
   const loadMoreMessages = async () => {
     if (!nextPageToken || loadingMore) return
-    setLoadingMore(true)
-    await fetchMessages(nextPageToken)
-    setLoadingMore(false)
+    try {
+      setLoadingMore(true)
+      await fetchMessages(nextPageToken)
+    } catch (err) {
+      console.error("[v0] Error loading more messages:", err)
+    } finally {
+      setLoadingMore(false)
+    }
   }
 
   useEffect(() => {
-    let filtered = allMessages
+    try {
+      console.log("[v0] Filtering messages for folder:", currentFolder)
+      let filtered = allMessages
 
-    switch (currentFolder) {
-      case "inbox":
-        filtered = allMessages.filter((m) => m.labelIds?.includes("INBOX"))
-        break
-      case "drafts":
-        filtered = allMessages.filter((m) => m.labelIds?.includes("DRAFT"))
-        break
-      case "sent":
-        filtered = allMessages.filter((m) => m.labelIds?.includes("SENT"))
-        break
-      case "archive":
-        filtered = allMessages.filter((m) => !m.labelIds?.includes("INBOX") && !m.labelIds?.includes("TRASH"))
-        break
-      case "spam":
-        filtered = allMessages.filter((m) => m.labelIds?.includes("SPAM"))
-        break
-      case "bin":
-        filtered = allMessages.filter((m) => m.labelIds?.includes("TRASH"))
-        break
+      switch (currentFolder) {
+        case "inbox":
+          filtered = allMessages.filter((m) => m.labelIds?.includes("INBOX"))
+          break
+        case "drafts":
+          filtered = allMessages.filter((m) => m.labelIds?.includes("DRAFT"))
+          break
+        case "sent":
+          filtered = allMessages.filter((m) => m.labelIds?.includes("SENT"))
+          break
+        case "archive":
+          filtered = allMessages.filter((m) => !m.labelIds?.includes("INBOX") && !m.labelIds?.includes("TRASH"))
+          break
+        case "spam":
+          filtered = allMessages.filter((m) => m.labelIds?.includes("SPAM"))
+          break
+        case "bin":
+          filtered = allMessages.filter((m) => m.labelIds?.includes("TRASH"))
+          break
+      }
+
+      // Apply search filter
+      if (searchQuery) {
+        filtered = filtered.filter((m) => {
+          try {
+            const subject = m.payload?.headers?.find((h) => h.name.toLowerCase() === "subject")?.value || ""
+            const from = m.payload?.headers?.find((h) => h.name.toLowerCase() === "from")?.value || ""
+            return (
+              subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              from.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              (m.snippet || "").toLowerCase().includes(searchQuery.toLowerCase())
+            )
+          } catch (err) {
+            console.error("[v0] Error filtering message:", err)
+            return false
+          }
+        })
+      }
+
+      setMessages(filtered)
+    } catch (err) {
+      console.error("[v0] Error in filter effect:", err)
     }
-
-    // Apply search filter
-    if (searchQuery) {
-      filtered = filtered.filter((m) => {
-        const subject = m.payload?.headers?.find((h) => h.name.toLowerCase() === "subject")?.value || ""
-        const from = m.payload?.headers?.find((h) => h.name.toLowerCase() === "from")?.value || ""
-        return (
-          subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          from.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (m.snippet || "").toLowerCase().includes(searchQuery.toLowerCase())
-        )
-      })
-    }
-
-    setMessages(filtered)
   }, [currentFolder, allMessages, searchQuery])
 
   const handleCompose = () => {
-    setReplyTo(undefined)
-    setIsComposeOpen(true)
+    try {
+      console.log("[v0] Opening compose modal")
+      setReplyTo(undefined)
+      setIsComposeOpen(true)
+    } catch (err) {
+      console.error("[v0] Error opening compose:", err)
+    }
   }
 
   const handleReply = () => {
-    if (!selectedMessage) return
+    try {
+      if (!selectedMessage) {
+        console.log("[v0] No message selected for reply")
+        return
+      }
 
-    const from = selectedMessage.payload?.headers?.find((h) => h.name.toLowerCase() === "from")?.value || ""
-    const subject = selectedMessage.payload?.headers?.find((h) => h.name.toLowerCase() === "subject")?.value || ""
-    const messageId = selectedMessage.payload?.headers?.find((h) => h.name.toLowerCase() === "message-id")?.value || ""
+      console.log("[v0] Preparing reply")
+      const from = selectedMessage.payload?.headers?.find((h) => h.name.toLowerCase() === "from")?.value || ""
+      const subject = selectedMessage.payload?.headers?.find((h) => h.name.toLowerCase() === "subject")?.value || ""
+      const messageId =
+        selectedMessage.payload?.headers?.find((h) => h.name.toLowerCase() === "message-id")?.value || ""
 
-    // Extract email from "Name <email>" format
-    const emailMatch = from.match(/<(.+)>/)
-    const email = emailMatch ? emailMatch[1] : from
+      // Extract email from "Name <email>" format
+      const emailMatch = from.match(/<(.+)>/)
+      const email = emailMatch ? emailMatch[1] : from
 
-    setReplyTo({
-      to: email,
-      subject: subject.startsWith("Re:") ? subject : `Re: ${subject}`,
-      messageId: messageId,
-      threadId: selectedMessage.threadId || "",
-    })
-    setIsComposeOpen(true)
+      setReplyTo({
+        to: email,
+        subject: subject.startsWith("Re:") ? subject : `Re: ${subject}`,
+        messageId: messageId,
+        threadId: selectedMessage.threadId || "",
+      })
+      setIsComposeOpen(true)
+    } catch (err) {
+      console.error("[v0] Error preparing reply:", err)
+    }
   }
 
   const handleArchive = async () => {
     if (!selectedMessage) return
     try {
+      console.log("[v0] Archiving message:", selectedMessage.id)
       await fetch(`/api/gmail/message/${selectedMessage.id}/archive`, { method: "POST" })
       // Refresh messages
       const response = await fetch("/api/gmail/messages")
@@ -168,6 +205,7 @@ export default function InboxPage() {
   const handleDelete = async () => {
     if (!selectedMessage) return
     try {
+      console.log("[v0] Deleting message:", selectedMessage.id)
       await fetch(`/api/gmail/message/${selectedMessage.id}/trash`, { method: "POST" })
       // Refresh messages
       const response = await fetch("/api/gmail/messages")
@@ -182,6 +220,7 @@ export default function InboxPage() {
   const handleMarkAsSpam = async () => {
     if (!selectedMessage) return
     try {
+      console.log("[v0] Marking as spam:", selectedMessage.id)
       await fetch(`/api/gmail/message/${selectedMessage.id}/spam`, { method: "POST" })
       // Refresh messages
       const response = await fetch("/api/gmail/messages")
