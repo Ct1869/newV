@@ -101,6 +101,20 @@ export default function InboxPage() {
     }
   }
 
+  const handleRefresh = async () => {
+    try {
+      console.log("[v0] Manual refresh triggered")
+      setLoading(true)
+      setAllMessages([])
+      setNextPageToken(null)
+      await fetchMessages()
+    } catch (err) {
+      console.error("[v0] Error refreshing:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     try {
       console.log("[v0] Filtering messages for folder:", currentFolder)
@@ -195,13 +209,20 @@ export default function InboxPage() {
     if (!selectedMessage) return
     try {
       console.log("[v0] Archiving message:", selectedMessage.id)
+
+      // Optimistically update UI
+      const messageId = selectedMessage.id
+      setAllMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, labelIds: (m.labelIds || []).filter((l) => l !== "INBOX") } : m)),
+      )
+      setSelectedMessage(null)
+
+      // Send API request in background
       await fetch(`/api/gmail/message/${selectedMessage.id}/archive`, { method: "POST" })
-      // Refresh messages
-      const response = await fetch("/api/gmail/messages")
-      const data = await response.json()
-      setAllMessages(data.messages || [])
     } catch (err) {
       console.error("[v0] Error archiving message:", err)
+      // Refresh on error
+      handleRefresh()
     }
   }
 
@@ -209,14 +230,19 @@ export default function InboxPage() {
     if (!selectedMessage) return
     try {
       console.log("[v0] Deleting message:", selectedMessage.id)
-      await fetch(`/api/gmail/message/${selectedMessage.id}/trash`, { method: "POST" })
-      // Refresh messages
-      const response = await fetch("/api/gmail/messages")
-      const data = await response.json()
-      setAllMessages(data.messages || [])
+
+      // Optimistically update UI
+      const messageId = selectedMessage.id
+      setAllMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, labelIds: [...(m.labelIds || []), "TRASH"] } : m)),
+      )
       setSelectedMessage(null)
+
+      // Send API request in background
+      await fetch(`/api/gmail/message/${selectedMessage.id}/trash`, { method: "POST" })
     } catch (err) {
       console.error("[v0] Error deleting message:", err)
+      handleRefresh()
     }
   }
 
@@ -224,13 +250,19 @@ export default function InboxPage() {
     if (!selectedMessage) return
     try {
       console.log("[v0] Marking as spam:", selectedMessage.id)
+
+      // Optimistically update UI
+      const messageId = selectedMessage.id
+      setAllMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, labelIds: [...(m.labelIds || []), "SPAM"] } : m)),
+      )
+      setSelectedMessage(null)
+
+      // Send API request in background
       await fetch(`/api/gmail/message/${selectedMessage.id}/spam`, { method: "POST" })
-      // Refresh messages
-      const response = await fetch("/api/gmail/messages")
-      const data = await response.json()
-      setAllMessages(data.messages || [])
     } catch (err) {
       console.error("[v0] Error marking as spam:", err)
+      handleRefresh()
     }
   }
 
@@ -288,6 +320,7 @@ export default function InboxPage() {
           onLoadMore={loadMoreMessages}
           hasMore={!!nextPageToken}
           loadingMore={loadingMore}
+          onRefresh={handleRefresh}
         />
         <EmailDetail
           message={selectedMessage}

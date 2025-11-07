@@ -1,17 +1,5 @@
 "use client"
-import {
-  Inbox,
-  Send,
-  FileText,
-  Archive,
-  Trash2,
-  Clock,
-  AlertOctagon,
-  Plus,
-  Settings,
-  MessageSquare,
-  Tag,
-} from "lucide-react"
+import { Inbox, Send, FileText, Archive, Trash2, Clock, AlertOctagon, Plus, Settings, Tag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { EmailFolder } from "@/app/inbox/page"
 import { useState } from "react"
@@ -151,13 +139,6 @@ export function InboxSidebar({ onCompose, currentFolder, onFolderChange, message
         </nav>
 
         <div className="border-t border-white/10">
-          <button
-            onClick={() => router.push("/feedback")}
-            className="flex w-full items-center gap-3 px-5 py-3 text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors"
-          >
-            <MessageSquare className="h-5 w-5" />
-            <span>Feedback</span>
-          </button>
           <button
             onClick={() => router.push("/settings")}
             className="flex w-full items-center gap-3 px-5 py-3 text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors"

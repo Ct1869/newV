@@ -24,9 +24,8 @@ export function EmailDetail({ message, onReply, onArchive, onDelete, onMarkAsSpa
         <p className="text-sm text-gray-600">Choose an email to view details</p>
         <div className="flex gap-3 mt-6">
           <Button variant="outline" className="gap-2 border-white/10 text-white hover:bg-white/5 bg-transparent">
-            Zero chat
+            Send email
           </Button>
-          <Button className="gap-2 bg-white text-black hover:bg-gray-200">Send email</Button>
         </div>
       </div>
     )
@@ -57,6 +56,11 @@ export function EmailDetail({ message, onReply, onArchive, onDelete, onMarkAsSpa
   ]
   const colorIndex = (senderEmail.charCodeAt(0) + senderEmail.charCodeAt(1)) % colors.length
   const avatarColor = colors[colorIndex]
+
+  const sanitizeEmailBody = (html: string) => {
+    // Allow external images to load
+    return html.replace(/src="cid:/g, 'data-cid="')
+  }
 
   return (
     <div className="flex flex-1 flex-col bg-[#0a0a0a]">
@@ -128,8 +132,8 @@ export function EmailDetail({ message, onReply, onArchive, onDelete, onMarkAsSpa
 
       <div className="flex-1 overflow-y-auto p-6">
         <div
-          className="prose prose-invert max-w-none text-gray-300 leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: body }}
+          className="prose prose-invert max-w-none text-gray-300 leading-relaxed [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg"
+          dangerouslySetInnerHTML={{ __html: sanitizeEmailBody(body) }}
         />
       </div>
 

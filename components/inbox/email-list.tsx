@@ -1,7 +1,7 @@
 "use client"
 
 import { type GmailMessage, getHeader, formatDate } from "@/lib/gmail-utils"
-import { Star, Search, RefreshCw, ChevronDown, Loader2 } from "lucide-react"
+import { Star, Search, RefreshCw, Loader2 } from "lucide-react"
 import type { EmailFolder } from "@/app/inbox/page"
 import { useState, useEffect, useRef } from "react"
 
@@ -15,6 +15,7 @@ interface EmailListProps {
   onLoadMore?: () => void
   hasMore?: boolean
   loadingMore?: boolean
+  onRefresh: () => void
 }
 
 export function EmailList({
@@ -27,12 +28,19 @@ export function EmailList({
   onLoadMore,
   hasMore = false,
   loadingMore = false,
+  onRefresh,
 }: EmailListProps) {
-  const [showCategories, setShowCategories] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const getFolderName = () => {
     return currentFolder.charAt(0).toUpperCase() + currentFolder.slice(1)
+  }
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    await onRefresh()
+    setTimeout(() => setIsRefreshing(false), 500)
   }
 
   useEffect(() => {
@@ -69,14 +77,11 @@ export function EmailList({
             </kbd>
           </div>
           <button
-            onClick={() => setShowCategories(!showCategories)}
-            className="flex items-center gap-1 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors disabled:opacity-50"
           >
-            <span>Categories</span>
-            <ChevronDown className="h-4 w-4" />
-          </button>
-          <button className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
           </button>
         </div>
       </div>
