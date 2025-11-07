@@ -1,41 +1,34 @@
 "use client"
 
-import { type GmailMessage, getHeader, formatDate } from "@/lib/gmail-utils"
-import { Star, Search, RefreshCw, Loader2 } from "lucide-react"
-import type { EmailFolder } from "@/app/inbox/page"
-import { useState, useEffect, useRef } from "react"
+import type React from "react"
+
+import { Search, RefreshCw } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { useState, useRef } from "react"
 
 interface EmailListProps {
-  messages: GmailMessage[]
-  selectedMessage: GmailMessage | null
-  onSelectMessage: (message: GmailMessage) => void
-  searchQuery: string
-  onSearchChange: (query: string) => void
-  currentFolder: EmailFolder
-  onLoadMore?: () => void
-  hasMore?: boolean
-  loadingMore?: boolean
+  emails: any[]
+  selectedEmail: any
+  onSelectEmail: (email: any) => void
   onRefresh: () => void
+  isLoading: boolean
+  hasMore: boolean
+  onLoadMore: () => void
 }
 
 export function EmailList({
-  messages,
-  selectedMessage,
-  onSelectMessage,
-  searchQuery,
-  onSearchChange,
-  currentFolder,
-  onLoadMore,
-  hasMore = false,
-  loadingMore = false,
+  emails,
+  selectedEmail,
+  onSelectEmail,
   onRefresh,
+  isLoading,
+  hasMore,
+  onLoadMore,
 }: EmailListProps) {
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const [searchQuery, setSearchQuery] = useState("")
   const [isRefreshing, setIsRefreshing] = useState(false)
-
-  const getFolderName = () => {
-    return currentFolder.charAt(0).toUpperCase() + currentFolder.slice(1)
-  }
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
@@ -43,149 +36,128 @@ export function EmailList({
     setTimeout(() => setIsRefreshing(false), 500)
   }
 
-  useEffect(() => {
-    const scrollElement = scrollRef.current
-    if (!scrollElement || !onLoadMore || !hasMore || loadingMore) return
-
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = scrollElement
-      // Load more when scrolled to 80% of the list
-      if (scrollTop + clientHeight >= scrollHeight * 0.8) {
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const element = e.currentTarget
+    if (element.scrollHeight - element.scrollTop === element.clientHeight) {
+      if (hasMore && !isLoading) {
         onLoadMore()
       }
     }
+  }
 
-    scrollElement.addEventListener("scroll", handleScroll)
-    return () => scrollElement.removeEventListener("scroll", handleScroll)
-  }, [onLoadMore, hasMore, loadingMore])
+  const filteredEmails = emails.filter((email) => {
+    if (!searchQuery) return true
+    const searchLower = searchQuery.toLowerCase()
+    const from = email.headers?.find((h: any) => h.name === "From")?.value || ""
+    const subject = email.headers?.find((h: any) => h.name === "Subject")?.value || ""
+    return from.toLowerCase().includes(searchLower) || subject.toLowerCase().includes(searchLower)
+  })
+
+  const getHeader = (email: any, name: string) => {
+    return email.headers?.find((h: any) => h.name === name)?.value || ""
+  }
+
+  const getInitials = (name: string) => {
+    const match = name.match(/([A-Z])[a-z]*/)
+    return match ? match[1] : name.substring(0, 1).toUpperCase()
+  }
+
+  const getAvatarColor = (name: string) => {
+    const colors = ["bg-violet-600", "bg-blue-600", "bg-green-600", "bg-red-600", "bg-pink-600", "bg-yellow-600"]
+    const hash = name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
+    return colors[hash % colors.length]
+  }
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMins < 60) return `${diffMins}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    if (diffDays < 7) return `${diffDays}d ago`
+    return date.toLocaleDateString()
+  }
 
   return (
-    <div className="flex w-[420px] flex-col border-r border-white/10 bg-[#0a0a0a]">
-      <div className="border-b border-white/10 p-3 space-y-3">
-        <div className="flex items-center gap-2">
+    <div className="w-96 bg-zinc-950 border-r border-zinc-800 flex flex-col">
+      {/* Header */}
+      <div className="p-4 border-b border-zinc-800">
+        <div className="flex items-center gap-2 mb-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-            <input
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+            <Input
               type="text"
               placeholder="Search"
               value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500"
             />
-            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-0.5 text-xs text-gray-500 bg-white/5 rounded border border-white/10">
+            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-zinc-700 bg-zinc-800 px-1.5 font-mono text-[10px] font-medium text-zinc-400">
               ⌘K
             </kbd>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors disabled:opacity-50"
+            className="text-zinc-400 hover:text-white"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-          </button>
+          </Button>
         </div>
-      </div>
-
-      <div className="border-b border-white/10 px-4 py-3">
-        <h2 className="text-lg font-semibold">{getFolderName()}</h2>
-        <p className="text-sm text-gray-400">
-          {messages.length.toLocaleString()} message{messages.length !== 1 ? "s" : ""}
-          {hasMore && " (loading more...)"}
+        <h2 className="text-lg font-semibold text-white">Inbox</h2>
+        <p className="text-sm text-zinc-400">
+          {filteredEmails.length} messages {hasMore && "(loading more...)"}
         </p>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center p-8">
-            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
-              <Search className="h-8 w-8 text-gray-600" />
-            </div>
-            <p className="text-gray-400 text-sm">No messages found</p>
+      {/* Email List */}
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
+        {filteredEmails.length === 0 && !isLoading ? (
+          <div className="flex flex-col items-center justify-center h-full text-zinc-500">
+            <p>No emails found</p>
           </div>
         ) : (
-          <>
-            {messages.map((message) => {
-              try {
-                const from = getHeader(message, "from")
-                const subject = getHeader(message, "subject")
-                const date = formatDate(message.internalDate)
-                const isSelected = selectedMessage?.id === message.id
-                const isUnread = message.labelIds?.includes("UNREAD")
+          filteredEmails.map((email) => {
+            const from = getHeader(email, "From")
+            const subject = getHeader(email, "Subject")
+            const date = getHeader(email, "Date")
+            const snippet = email.snippet || ""
 
-                // Extract sender name and email
-                const senderMatch = from.match(/^(.*?)\s*<(.+)>$/)
-                const senderName = senderMatch ? senderMatch[1].replace(/"/g, "") : from
-                const senderEmail = senderMatch ? senderMatch[2] : from
-
-                // Get first letter for avatar
-                const avatarLetter = (senderName || senderEmail || "?").charAt(0).toUpperCase()
-
-                // Generate color based on sender
-                const colors = [
-                  "bg-red-500",
-                  "bg-blue-500",
-                  "bg-green-500",
-                  "bg-yellow-500",
-                  "bg-purple-500",
-                  "bg-pink-500",
-                  "bg-indigo-500",
-                ]
-                const colorIndex = (senderEmail.charCodeAt(0) + (senderEmail.charCodeAt(1) || 0)) % colors.length
-                const avatarColor = colors[colorIndex] || colors[0]
-
-                return (
-                  <button
-                    key={message.id}
-                    onClick={() => onSelectMessage(message)}
-                    className={`w-full border-b border-white/5 p-4 text-left transition-colors ${
-                      isSelected ? "bg-white/10" : "hover:bg-white/5"
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`flex-shrink-0 w-10 h-10 rounded-full ${avatarColor} flex items-center justify-center text-white font-semibold text-sm`}
-                      >
-                        {avatarLetter}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <p
-                            className={`truncate text-sm ${isUnread ? "font-semibold text-white" : "font-normal text-gray-300"}`}
-                          >
-                            {senderName || senderEmail || "Unknown"}
-                          </p>
-                          <span className="text-xs text-gray-500 flex-shrink-0">{date}</span>
-                        </div>
-                        <p className={`truncate text-sm mb-1 ${isUnread ? "font-medium text-white" : "text-gray-400"}`}>
-                          {subject || "(no subject)"}
-                        </p>
-                        <p className="truncate text-xs text-gray-500">{message.snippet || ""}</p>
-                      </div>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          // TODO: Implement star functionality
-                        }}
-                        className="flex-shrink-0 text-gray-500 hover:text-yellow-400 transition-colors"
-                      >
-                        <Star className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </button>
-                )
-              } catch (error) {
-                console.error("[v0] Error rendering message:", message.id, error)
-                return null
-              }
-            })}
-            {loadingMore && (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-              </div>
-            )}
-          </>
+            return (
+              <button
+                key={email.id}
+                onClick={() => onSelectEmail(email)}
+                className={`w-full flex items-start gap-3 p-4 border-b border-zinc-800 hover:bg-zinc-900 transition-colors ${
+                  selectedEmail?.id === email.id ? "bg-zinc-900" : ""
+                }`}
+              >
+                <div
+                  className={`h-10 w-10 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0 ${getAvatarColor(from)}`}
+                >
+                  {getInitials(from)}
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="font-semibold text-white text-sm truncate">{from.split("<")[0].trim()}</p>
+                    <span className="text-xs text-zinc-500 flex-shrink-0 ml-2">{formatDate(date)}</span>
+                  </div>
+                  <p className="text-sm text-white font-medium truncate mb-1">{subject}</p>
+                  <p className="text-xs text-zinc-400 line-clamp-2">{snippet}</p>
+                </div>
+              </button>
+            )
+          })
+        )}
+        {isLoading && (
+          <div className="flex items-center justify-center py-4">
+            <RefreshCw className="h-5 w-5 animate-spin text-zinc-500" />
+          </div>
         )}
       </div>
     </div>

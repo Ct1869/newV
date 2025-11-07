@@ -1,171 +1,120 @@
 "use client"
 
-import { type GmailMessage, getHeader, getMessageBody } from "@/lib/gmail-utils"
-import { Reply, Forward, Trash2, Archive, MoreVertical, AlertOctagon, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Mail, Reply, Forward, Archive, Trash2, MoreVertical, Flag } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 interface EmailDetailProps {
-  message: GmailMessage | null
-  onReply: () => void
-  onArchive: () => void
-  onDelete: () => void
-  onMarkAsSpam: () => void
+  email: any
+  onReply: (email: any) => void
+  onArchive: (id: string) => void
+  onDelete: (id: string) => void
+  onSpam: (id: string) => void
 }
 
-export function EmailDetail({ message, onReply, onArchive, onDelete, onMarkAsSpam }: EmailDetailProps) {
-  if (!message) {
+export function EmailDetail({ email, onReply, onArchive, onDelete, onSpam }: EmailDetailProps) {
+  if (!email) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center bg-[#0a0a0a] text-gray-500">
-        <div className="w-32 h-32 rounded-full bg-white/5 flex items-center justify-center mb-6">
-          <Mail className="h-16 w-16 text-gray-600" />
-        </div>
-        <p className="text-lg font-medium mb-2">It's empty here</p>
-        <p className="text-sm text-gray-600">Choose an email to view details</p>
-        <div className="flex gap-3 mt-6">
-          <Button variant="outline" className="gap-2 border-white/10 text-white hover:bg-white/5 bg-transparent">
-            Send email
-          </Button>
-        </div>
+      <div className="flex-1 flex flex-col items-center justify-center bg-zinc-900/50 border-l border-zinc-800">
+        <Mail className="h-16 w-16 text-zinc-700 mb-4" />
+        <h3 className="text-xl font-semibold text-zinc-400 mb-2">It's empty here</h3>
+        <p className="text-zinc-500 text-sm">Choose an email to view details</p>
       </div>
     )
   }
 
-  const from = getHeader(message, "from")
-  const subject = getHeader(message, "subject")
-  const date = new Date(Number.parseInt(message.internalDate))
-  const body = getMessageBody(message)
+  const getHeader = (name: string) => {
+    return email.headers?.find((h: any) => h.name === name)?.value || ""
+  }
 
-  // Extract sender name and email
-  const senderMatch = from.match(/^(.*?)\s*<(.+)>$/)
-  const senderName = senderMatch ? senderMatch[1].replace(/"/g, "") : from
-  const senderEmail = senderMatch ? senderMatch[2] : from
+  const from = getHeader("From")
+  const subject = getHeader("Subject")
+  const date = getHeader("Date")
 
-  // Get first letter for avatar
-  const avatarLetter = (senderName || senderEmail).charAt(0).toUpperCase()
+  const getInitials = (name: string) => {
+    const match = name.match(/([A-Z])[a-z]*\s([A-Z])[a-z]*/)
+    if (match) return match[1] + match[2]
+    return name.substring(0, 2).toUpperCase()
+  }
 
-  // Generate color based on sender
-  const colors = [
-    "from-red-500 to-red-600",
-    "from-blue-500 to-blue-600",
-    "from-green-500 to-green-600",
-    "from-yellow-500 to-yellow-600",
-    "from-purple-500 to-purple-600",
-    "from-pink-500 to-pink-600",
-    "from-indigo-500 to-indigo-600",
-  ]
-  const colorIndex = (senderEmail.charCodeAt(0) + senderEmail.charCodeAt(1)) % colors.length
-  const avatarColor = colors[colorIndex]
-
-  const sanitizeEmailBody = (html: string) => {
-    // Remove dangerous tags but preserve images and styling
-    let sanitized = html
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "")
-      .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, "")
-      .replace(/<embed\b[^<]*>/gi, "")
-
-    // Ensure all images load properly with better attributes
-    sanitized = sanitized.replace(
-      /<img([^>]*)>/gi,
-      '<img$1 loading="lazy" referrerpolicy="no-referrer" style="max-width: 100%; height: auto;">',
-    )
-
-    return sanitized
+  const getAvatarColor = (name: string) => {
+    const colors = ["bg-violet-600", "bg-blue-600", "bg-green-600", "bg-red-600", "bg-pink-600", "bg-yellow-600"]
+    const hash = name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
+    return colors[hash % colors.length]
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-[#0a0a0a]">
-      <div className="border-b border-white/10 p-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-balance">{subject || "(no subject)"}</h1>
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={onArchive}
-              variant="ghost"
-              size="icon"
-              className="text-gray-400 hover:text-white hover:bg-white/5"
-            >
-              <Archive className="h-5 w-5" />
-            </Button>
-            <Button
-              onClick={onDelete}
-              variant="ghost"
-              size="icon"
-              className="text-gray-400 hover:text-white hover:bg-white/5"
-            >
-              <Trash2 className="h-5 w-5" />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white hover:bg-white/5">
-                  <MoreVertical className="h-5 w-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-[#1a1a1a] border-white/10">
-                <DropdownMenuItem onClick={onMarkAsSpam} className="text-white hover:bg-white/10 cursor-pointer">
-                  <AlertOctagon className="h-4 w-4 mr-2" />
-                  Mark as spam
-                </DropdownMenuItem>
-                <DropdownMenuItem className="text-white hover:bg-white/10 cursor-pointer">
-                  <Mail className="h-4 w-4 mr-2" />
-                  Mark as unread
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+    <div className="flex-1 flex flex-col bg-zinc-900/50 border-l border-zinc-800">
+      {/* Email Header Actions */}
+      <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+        <h2 className="text-lg font-semibold truncate">{subject}</h2>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onArchive(email.id)}
+            className="text-zinc-400 hover:text-white"
+          >
+            <Archive className="h-5 w-5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onDelete(email.id)}
+            className="text-zinc-400 hover:text-white"
+          >
+            <Trash2 className="h-5 w-5" />
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white">
+                <MoreVertical className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800">
+              <DropdownMenuItem onClick={() => onSpam(email.id)} className="text-zinc-300">
+                <Flag className="h-4 w-4 mr-2" />
+                Mark as Spam
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      <div className="border-b border-white/10 p-4">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3">
-            <div
-              className={`flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br ${avatarColor} text-sm font-semibold text-white`}
-            >
-              {avatarLetter}
-            </div>
-            <div>
-              <p className="font-semibold">{senderName}</p>
-              <p className="text-sm text-gray-400">{senderEmail}</p>
-            </div>
-          </div>
-          <p className="text-sm text-gray-400">
-            {date.toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-              hour: "numeric",
-              minute: "2-digit",
-            })}
-          </p>
-        </div>
-      </div>
-
+      {/* Email Content */}
       <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex items-start gap-4 mb-6">
+          <div
+            className={`h-12 w-12 rounded-full flex items-center justify-center text-white font-semibold ${getAvatarColor(from)}`}
+          >
+            {getInitials(from)}
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-semibold text-white">{from.split("<")[0].trim()}</h3>
+              <span className="text-sm text-zinc-400">{new Date(date).toLocaleString()}</span>
+            </div>
+            <p className="text-sm text-zinc-400">{from.match(/<(.+)>/)?.[1] || from}</p>
+          </div>
+        </div>
+
+        {/* Email Body */}
         <div
-          className="prose prose-invert max-w-none text-gray-300 leading-relaxed 
-            [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-4 [&_img]:block
-            [&_a]:text-blue-400 [&_a]:underline [&_a:hover]:text-blue-300
-            [&_table]:border-collapse [&_table]:w-full [&_td]:border [&_td]:border-white/10 [&_td]:p-2 [&_th]:border [&_th]:border-white/10 [&_th]:p-2
-            [&_blockquote]:border-l-4 [&_blockquote]:border-white/20 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-4
-            [&_pre]:bg-white/5 [&_pre]:p-4 [&_pre]:rounded-lg [&_pre]:overflow-x-auto
-            [&_code]:bg-white/10 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded"
-          dangerouslySetInnerHTML={{ __html: sanitizeEmailBody(body) }}
+          className="prose prose-invert max-w-none"
+          dangerouslySetInnerHTML={{ __html: email.body || '<p class="text-zinc-400">No content</p>' }}
         />
       </div>
 
-      <div className="border-t border-white/10 p-4">
-        <div className="flex gap-2">
-          <Button onClick={onReply} className="gap-2 bg-blue-600 text-white hover:bg-blue-700">
-            <Reply className="h-4 w-4" />
-            Reply
-          </Button>
-          <Button variant="outline" className="gap-2 border-white/10 text-white hover:bg-white/5 bg-transparent">
-            <Forward className="h-4 w-4" />
-            Forward
-          </Button>
-        </div>
+      {/* Action Buttons */}
+      <div className="p-4 border-t border-zinc-800 flex gap-2">
+        <Button onClick={() => onReply(email)} className="bg-blue-600 hover:bg-blue-700">
+          <Reply className="h-4 w-4 mr-2" />
+          Reply
+        </Button>
+        <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 bg-transparent">
+          <Forward className="h-4 w-4 mr-2" />
+          Forward
+        </Button>
       </div>
     </div>
   )

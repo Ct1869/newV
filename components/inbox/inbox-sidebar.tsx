@@ -1,182 +1,115 @@
 "use client"
-import { Inbox, Send, FileText, Archive, Trash2, Clock, AlertOctagon, Plus, Settings, Tag } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import type { EmailFolder } from "@/app/inbox/page"
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { AddAccountModal } from "./add-account-modal"
 
-interface GmailAccount {
-  email: string
-  name: string
-  accessToken: string
-}
+import { Button } from "@/components/ui/button"
+import { Plus, Inbox, FileText, Send, Archive, Clock, AlertCircle, Trash2, Settings } from "lucide-react"
 
 interface InboxSidebarProps {
+  onFolderChange: (folder: string) => void
+  currentFolder: string
   onCompose: () => void
-  currentFolder: EmailFolder
-  onFolderChange: (folder: EmailFolder) => void
-  messageCounts: {
-    inbox: number
-    drafts: number
-    sent: number
-    archive: number
-    snoozed: number
-    spam: number
-    bin: number
-  }
 }
 
-export function InboxSidebar({ onCompose, currentFolder, onFolderChange, messageCounts }: InboxSidebarProps) {
-  const [showLabels, setShowLabels] = useState(false)
-  const [showAddAccount, setShowAddAccount] = useState(false)
-  const [accounts, setAccounts] = useState<GmailAccount[]>([])
-  const router = useRouter()
-
-  useEffect(() => {
-    async function loadAccounts() {
-      try {
-        const response = await fetch("/api/auth/accounts")
-        if (response.ok) {
-          const data = await response.json()
-          setAccounts(data.accounts || [])
-        }
-      } catch (error) {
-        console.error("[v0] Error loading accounts:", error)
-      }
-    }
-    loadAccounts()
-  }, [])
-
-  const coreItems = [
-    { icon: Inbox, label: "Inbox", count: messageCounts.inbox, folder: "inbox" as EmailFolder },
-    { icon: FileText, label: "Drafts", count: messageCounts.drafts, folder: "drafts" as EmailFolder },
-    { icon: Send, label: "Sent", count: messageCounts.sent, folder: "sent" as EmailFolder },
+export function InboxSidebar({ onFolderChange, currentFolder, onCompose }: InboxSidebarProps) {
+  const folders = [
+    { id: "INBOX", name: "Inbox", icon: Inbox, count: 0 },
+    { id: "DRAFT", name: "Drafts", icon: FileText, count: 0 },
+    { id: "SENT", name: "Sent", icon: Send, count: 0 },
   ]
 
-  const managementItems = [
-    { icon: Archive, label: "Archive", count: messageCounts.archive, folder: "archive" as EmailFolder },
-    { icon: Clock, label: "Snoozed", count: messageCounts.snoozed, folder: "snoozed" as EmailFolder },
-    { icon: AlertOctagon, label: "Spam", count: messageCounts.spam, folder: "spam" as EmailFolder },
-    { icon: Trash2, label: "Bin", count: messageCounts.bin, folder: "bin" as EmailFolder },
+  const managementFolders = [
+    { id: "ARCHIVE", name: "Archive", icon: Archive, count: 0 },
+    { id: "SNOOZED", name: "Snoozed", icon: Clock, count: 0 },
+    { id: "SPAM", name: "Spam", icon: AlertCircle, count: 0 },
+    { id: "TRASH", name: "Bin", icon: Trash2, count: 0 },
   ]
-
-  const totalAccounts = accounts.length
 
   return (
-    <>
-      <div className="flex w-64 flex-col border-r border-white/10 bg-[#0a0a0a]">
-        <div className="border-b border-white/10 p-4">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-blue-600 text-white font-bold text-lg shrink-0">
-              U
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">Unified Inbox</p>
-              <p className="text-xs text-gray-400">
-                {totalAccounts} {totalAccounts === 1 ? "account" : "accounts"} connected
-              </p>
-            </div>
-            <button
-              onClick={() => setShowAddAccount(true)}
-              className="text-gray-400 hover:text-white transition-colors shrink-0"
-            >
-              <Plus className="h-5 w-5" />
-            </button>
+    <div className="w-64 bg-zinc-950 border-r border-zinc-800 flex flex-col">
+      {/* User Profile */}
+      <div className="p-4 border-b border-zinc-800">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
+            U
           </div>
-
-          <button className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
-            <span>GET VERIFIED</span>
-          </button>
-        </div>
-
-        <div className="p-4">
-          <Button onClick={onCompose} className="w-full justify-start gap-2 bg-blue-600 text-white hover:bg-blue-700">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-white">User</p>
+            <p className="text-xs text-zinc-400">Loading...</p>
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8">
             <Plus className="h-4 w-4" />
-            New email
           </Button>
         </div>
+        <p className="text-xs text-blue-400 cursor-pointer hover:text-blue-300">GET VERIFIED</p>
+      </div>
 
-        <nav className="flex-1 overflow-y-auto">
-          <div className="px-2 pb-2">
-            <p className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">Core</p>
-            <div className="space-y-1">
-              {coreItems.map((item) => (
-                <button
-                  key={item.label}
-                  onClick={() => onFolderChange(item.folder)}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
-                    currentFolder === item.folder
-                      ? "bg-white/10 text-white"
-                      : "text-gray-400 hover:bg-white/5 hover:text-white"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <item.icon className="h-5 w-5" />
-                    <span>{item.label}</span>
-                  </div>
-                  {item.count > 0 && (
-                    <span className="text-xs text-gray-500 font-medium">{item.count.toLocaleString()}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
+      {/* New Email Button */}
+      <div className="p-4">
+        <Button onClick={onCompose} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+          <Plus className="h-4 w-4 mr-2" />
+          New email
+        </Button>
+      </div>
 
-          <div className="px-2 pb-2">
-            <p className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">Management</p>
-            <div className="space-y-1">
-              {managementItems.map((item) => (
-                <button
-                  key={item.label}
-                  onClick={() => onFolderChange(item.folder)}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
-                    currentFolder === item.folder
-                      ? "bg-white/10 text-white"
-                      : "text-gray-400 hover:bg-white/5 hover:text-white"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <item.icon className="h-5 w-5" />
-                    <span>{item.label}</span>
-                  </div>
-                  {item.count > 0 && <span className="text-xs text-gray-500 font-medium">{item.count}</span>}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="px-2 pb-2">
+      {/* Core Folders */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="px-4 py-2">
+          <p className="text-xs font-semibold text-zinc-500 mb-2">CORE</p>
+          {folders.map((folder) => (
             <button
-              onClick={() => setShowLabels(!showLabels)}
-              className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold text-gray-500 uppercase hover:text-gray-400"
+              key={folder.id}
+              onClick={() => onFolderChange(folder.id)}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                currentFolder === folder.id
+                  ? "bg-zinc-800 text-white"
+                  : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
+              }`}
             >
-              <span>Labels</span>
-              <Plus className="h-4 w-4" />
+              <folder.icon className="h-4 w-4" />
+              <span className="flex-1 text-left">{folder.name}</span>
+              {folder.count > 0 && <span className="text-xs text-zinc-500">{folder.count}</span>}
             </button>
-            {showLabels && (
-              <div className="space-y-1 mt-1">
-                <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-400 hover:bg-white/5 hover:text-white">
-                  <Tag className="h-4 w-4" />
-                  <span>Add label</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </nav>
+          ))}
+        </div>
 
-        <div className="border-t border-white/10">
-          <button
-            onClick={() => router.push("/settings")}
-            className="flex w-full items-center gap-3 px-5 py-3 text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors"
-          >
-            <Settings className="h-5 w-5" />
-            <span>Settings</span>
-          </button>
+        {/* Management Folders */}
+        <div className="px-4 py-2 border-t border-zinc-800 mt-2">
+          <p className="text-xs font-semibold text-zinc-500 mb-2">MANAGEMENT</p>
+          {managementFolders.map((folder) => (
+            <button
+              key={folder.id}
+              onClick={() => onFolderChange(folder.id)}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                currentFolder === folder.id
+                  ? "bg-zinc-800 text-white"
+                  : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
+              }`}
+            >
+              <folder.icon className="h-4 w-4" />
+              <span className="flex-1 text-left">{folder.name}</span>
+              {folder.count > 0 && <span className="text-xs text-zinc-500">{folder.count}</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* Labels */}
+        <div className="px-4 py-2 border-t border-zinc-800 mt-2">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-zinc-500">LABELS</p>
+            <Plus className="h-3 w-3 text-zinc-500 cursor-pointer hover:text-zinc-400" />
+          </div>
         </div>
       </div>
 
-      <AddAccountModal isOpen={showAddAccount} onClose={() => setShowAddAccount(false)} />
-    </>
+      {/* Bottom Actions */}
+      <div className="border-t border-zinc-800">
+        <button
+          onClick={() => (window.location.href = "/settings")}
+          className="w-full flex items-center gap-3 px-6 py-3 text-zinc-400 hover:bg-zinc-900 hover:text-white transition-colors"
+        >
+          <Settings className="h-4 w-4" />
+          <span className="text-sm">Settings</span>
+        </button>
+      </div>
+    </div>
   )
 }
