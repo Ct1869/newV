@@ -21,7 +21,6 @@ export default function InboxPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [nextPageToken, setNextPageToken] = useState<string | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [currentAccountEmail, setCurrentAccountEmail] = useState<string | null>(null)
   const [replyTo, setReplyTo] = useState<
     | {
         to: string
@@ -32,11 +31,15 @@ export default function InboxPage() {
     | undefined
   >(undefined)
   const router = useRouter()
+  const currentAccountEmail = "" // Declare currentAccountEmail variable
 
   const fetchMessages = useCallback(
     async (pageToken?: string) => {
       try {
-        console.log("[v0] Fetching messages...", pageToken ? `(page token: ${pageToken})` : "(initial load)")
+        console.log(
+          "[v0] Fetching unified messages from all accounts...",
+          pageToken ? `(page token: ${pageToken})` : "(initial load)",
+        )
         const url = pageToken ? `/api/gmail/messages?pageToken=${pageToken}` : "/api/gmail/messages"
         const response = await fetch(url)
 
@@ -52,7 +55,7 @@ export default function InboxPage() {
         }
 
         const data = await response.json()
-        console.log("[v0] Messages fetched:", data.messages?.length || 0)
+        console.log("[v0] Unified messages fetched:", data.messages?.length || 0)
 
         if (pageToken) {
           setAllMessages((prev) => [...prev, ...(data.messages || [])])
@@ -77,7 +80,7 @@ export default function InboxPage() {
   useEffect(() => {
     async function initialFetch() {
       try {
-        console.log("[v0] Starting initial fetch")
+        console.log("[v0] Starting initial unified fetch")
         setLoading(true)
         await fetchMessages()
       } catch (err) {
@@ -104,7 +107,7 @@ export default function InboxPage() {
 
   const handleRefresh = async () => {
     try {
-      console.log("[v0] Manual refresh triggered")
+      console.log("[v0] Manual refresh triggered for unified inbox")
       setLoading(true)
       setAllMessages([])
       setMessages([])
@@ -120,20 +123,11 @@ export default function InboxPage() {
 
   const handleAccountSwitch = useCallback((newAccountEmail: string) => {
     console.log("[v0] Account switched to:", newAccountEmail)
-    setCurrentAccountEmail(newAccountEmail)
-    setAllMessages([])
-    setMessages([])
-    setSelectedMessage(null)
-    setNextPageToken(null)
-    setLoading(true)
-    // Fetch will be triggered by the effect below
+    // No longer needed for unified messages
   }, [])
 
   useEffect(() => {
-    if (currentAccountEmail) {
-      console.log("[v0] Refetching for new account:", currentAccountEmail)
-      fetchMessages()
-    }
+    // No longer needed for unified messages
   }, [currentAccountEmail, fetchMessages])
 
   useEffect(() => {
@@ -321,7 +315,6 @@ export default function InboxPage() {
           onCompose={handleCompose}
           currentFolder={currentFolder}
           onFolderChange={setCurrentFolder}
-          onAccountSwitch={handleAccountSwitch}
           messageCounts={{
             inbox: allMessages.filter((m) => m.labelIds?.includes("INBOX")).length,
             drafts: allMessages.filter((m) => m.labelIds?.includes("DRAFT")).length,

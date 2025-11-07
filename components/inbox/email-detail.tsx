@@ -58,13 +58,18 @@ export function EmailDetail({ message, onReply, onArchive, onDelete, onMarkAsSpa
   const avatarColor = colors[colorIndex]
 
   const sanitizeEmailBody = (html: string) => {
-    // Remove dangerous tags but preserve images
+    // Remove dangerous tags but preserve images and styling
     let sanitized = html
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
       .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "")
+      .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, "")
+      .replace(/<embed\b[^<]*>/gi, "")
 
-    // Ensure images can load from external sources
-    sanitized = sanitized.replace(/(<img[^>]+)src=/gi, '$1loading="lazy" src=')
+    // Ensure all images load properly with better attributes
+    sanitized = sanitized.replace(
+      /<img([^>]*)>/gi,
+      '<img$1 loading="lazy" referrerpolicy="no-referrer" style="max-width: 100%; height: auto;">',
+    )
 
     return sanitized
   }
@@ -140,10 +145,12 @@ export function EmailDetail({ message, onReply, onArchive, onDelete, onMarkAsSpa
       <div className="flex-1 overflow-y-auto p-6">
         <div
           className="prose prose-invert max-w-none text-gray-300 leading-relaxed 
-            [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-4
+            [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-4 [&_img]:block
             [&_a]:text-blue-400 [&_a]:underline [&_a:hover]:text-blue-300
-            [&_table]:border-collapse [&_td]:border [&_td]:border-white/10 [&_td]:p-2
-            [&_blockquote]:border-l-4 [&_blockquote]:border-white/20 [&_blockquote]:pl-4 [&_blockquote]:italic"
+            [&_table]:border-collapse [&_table]:w-full [&_td]:border [&_td]:border-white/10 [&_td]:p-2 [&_th]:border [&_th]:border-white/10 [&_th]:p-2
+            [&_blockquote]:border-l-4 [&_blockquote]:border-white/20 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-4
+            [&_pre]:bg-white/5 [&_pre]:p-4 [&_pre]:rounded-lg [&_pre]:overflow-x-auto
+            [&_code]:bg-white/10 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded"
           dangerouslySetInnerHTML={{ __html: sanitizeEmailBody(body) }}
         />
       </div>
