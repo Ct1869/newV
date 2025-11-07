@@ -100,75 +100,80 @@ export function EmailList({
         ) : (
           <>
             {messages.map((message) => {
-              const from = getHeader(message, "from")
-              const subject = getHeader(message, "subject")
-              const date = formatDate(message.internalDate)
-              const isSelected = selectedMessage?.id === message.id
-              const isUnread = message.labelIds?.includes("UNREAD")
+              try {
+                const from = getHeader(message, "from")
+                const subject = getHeader(message, "subject")
+                const date = formatDate(message.internalDate)
+                const isSelected = selectedMessage?.id === message.id
+                const isUnread = message.labelIds?.includes("UNREAD")
 
-              // Extract sender name and email
-              const senderMatch = from.match(/^(.*?)\s*<(.+)>$/)
-              const senderName = senderMatch ? senderMatch[1].replace(/"/g, "") : from
-              const senderEmail = senderMatch ? senderMatch[2] : from
+                // Extract sender name and email
+                const senderMatch = from.match(/^(.*?)\s*<(.+)>$/)
+                const senderName = senderMatch ? senderMatch[1].replace(/"/g, "") : from
+                const senderEmail = senderMatch ? senderMatch[2] : from
 
-              // Get first letter for avatar
-              const avatarLetter = (senderName || senderEmail).charAt(0).toUpperCase()
+                // Get first letter for avatar
+                const avatarLetter = (senderName || senderEmail || "?").charAt(0).toUpperCase()
 
-              // Generate color based on sender
-              const colors = [
-                "bg-red-500",
-                "bg-blue-500",
-                "bg-green-500",
-                "bg-yellow-500",
-                "bg-purple-500",
-                "bg-pink-500",
-                "bg-indigo-500",
-              ]
-              const colorIndex = (senderEmail.charCodeAt(0) + senderEmail.charCodeAt(1)) % colors.length
-              const avatarColor = colors[colorIndex]
+                // Generate color based on sender
+                const colors = [
+                  "bg-red-500",
+                  "bg-blue-500",
+                  "bg-green-500",
+                  "bg-yellow-500",
+                  "bg-purple-500",
+                  "bg-pink-500",
+                  "bg-indigo-500",
+                ]
+                const colorIndex = (senderEmail.charCodeAt(0) + (senderEmail.charCodeAt(1) || 0)) % colors.length
+                const avatarColor = colors[colorIndex] || colors[0]
 
-              return (
-                <button
-                  key={message.id}
-                  onClick={() => onSelectMessage(message)}
-                  className={`w-full border-b border-white/5 p-4 text-left transition-colors ${
-                    isSelected ? "bg-white/10" : "hover:bg-white/5"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`flex-shrink-0 w-10 h-10 rounded-full ${avatarColor} flex items-center justify-center text-white font-semibold text-sm`}
-                    >
-                      {avatarLetter}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <p
-                          className={`truncate text-sm ${isUnread ? "font-semibold text-white" : "font-normal text-gray-300"}`}
-                        >
-                          {senderName || senderEmail}
-                        </p>
-                        <span className="text-xs text-gray-500 flex-shrink-0">{date}</span>
+                return (
+                  <button
+                    key={message.id}
+                    onClick={() => onSelectMessage(message)}
+                    className={`w-full border-b border-white/5 p-4 text-left transition-colors ${
+                      isSelected ? "bg-white/10" : "hover:bg-white/5"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`flex-shrink-0 w-10 h-10 rounded-full ${avatarColor} flex items-center justify-center text-white font-semibold text-sm`}
+                      >
+                        {avatarLetter}
                       </div>
-                      <p className={`truncate text-sm mb-1 ${isUnread ? "font-medium text-white" : "text-gray-400"}`}>
-                        {subject || "(no subject)"}
-                      </p>
-                      <p className="truncate text-xs text-gray-500">{message.snippet}</p>
-                    </div>
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        // TODO: Implement star functionality
-                      }}
-                      className="flex-shrink-0 text-gray-500 hover:text-yellow-400 transition-colors"
-                    >
-                      <Star className="h-4 w-4" />
-                    </button>
-                  </div>
-                </button>
-              )
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <p
+                            className={`truncate text-sm ${isUnread ? "font-semibold text-white" : "font-normal text-gray-300"}`}
+                          >
+                            {senderName || senderEmail || "Unknown"}
+                          </p>
+                          <span className="text-xs text-gray-500 flex-shrink-0">{date}</span>
+                        </div>
+                        <p className={`truncate text-sm mb-1 ${isUnread ? "font-medium text-white" : "text-gray-400"}`}>
+                          {subject || "(no subject)"}
+                        </p>
+                        <p className="truncate text-xs text-gray-500">{message.snippet || ""}</p>
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          // TODO: Implement star functionality
+                        }}
+                        className="flex-shrink-0 text-gray-500 hover:text-yellow-400 transition-colors"
+                      >
+                        <Star className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </button>
+                )
+              } catch (error) {
+                console.error("[v0] Error rendering message:", message.id, error)
+                return null
+              }
             })}
             {loadingMore && (
               <div className="flex items-center justify-center py-4">

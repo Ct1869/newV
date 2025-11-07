@@ -66,6 +66,8 @@ export default function InboxPage() {
       } catch (err) {
         console.error("[v0] Error fetching messages:", err)
         setError(err instanceof Error ? err.message : "Failed to load messages")
+      } finally {
+        setLoading(false)
       }
     },
     [router],
@@ -146,6 +148,7 @@ export default function InboxPage() {
       setMessages(filtered)
     } catch (err) {
       console.error("[v0] Error in filter effect:", err)
+      setError("Error filtering messages")
     }
   }, [currentFolder, allMessages, searchQuery])
 
