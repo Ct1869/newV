@@ -1,9 +1,9 @@
 "use client"
 
 import { type GmailMessage, getHeader, formatDate } from "@/lib/gmail-utils"
-import { Star, Search, RefreshCw, ChevronDown } from "lucide-react"
+import { Star, Search, RefreshCw, ChevronDown, Loader2 } from "lucide-react"
 import type { EmailFolder } from "@/app/inbox/page"
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 
 interface EmailListProps {
   messages: GmailMessage[]
@@ -12,6 +12,9 @@ interface EmailListProps {
   searchQuery: string
   onSearchChange: (query: string) => void
   currentFolder: EmailFolder
+  onLoadMore?: () => void
+  hasMore?: boolean
+  loadingMore?: boolean
 }
 
 export function EmailList({
@@ -21,12 +24,32 @@ export function EmailList({
   searchQuery,
   onSearchChange,
   currentFolder,
+  onLoadMore,
+  hasMore = false,
+  loadingMore = false,
 }: EmailListProps) {
   const [showCategories, setShowCategories] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const getFolderName = () => {
     return currentFolder.charAt(0).toUpperCase() + currentFolder.slice(1)
   }
+
+  useEffect(() => {
+    const scrollElement = scrollRef.current
+    if (!scrollElement || !onLoadMore || !hasMore || loadingMore) return
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollElement
+      // Load more when scrolled to 80% of the list
+      if (scrollTop + clientHeight >= scrollHeight * 0.8) {
+        onLoadMore()
+      }
+    }
+
+    scrollElement.addEventListener("scroll", handleScroll)
+    return () => scrollElement.removeEventListener("scroll", handleScroll)
+  }, [onLoadMore, hasMore, loadingMore])
 
   return (
     <div className="flex w-[420px] flex-col border-r border-white/10 bg-[#0a0a0a]">
@@ -60,10 +83,13 @@ export function EmailList({
 
       <div className="border-b border-white/10 px-4 py-3">
         <h2 className="text-lg font-semibold">{getFolderName()}</h2>
-        <p className="text-sm text-gray-400">{messages.length.toLocaleString()} messages</p>
+        <p className="text-sm text-gray-400">
+          {messages.length.toLocaleString()} message{messages.length !== 1 ? "s" : ""}
+          {hasMore && " (loading more...)"}
+        </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-8">
             <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
@@ -72,77 +98,84 @@ export function EmailList({
             <p className="text-gray-400 text-sm">No messages found</p>
           </div>
         ) : (
-          messages.map((message) => {
-            const from = getHeader(message, "from")
-            const subject = getHeader(message, "subject")
-            const date = formatDate(message.internalDate)
-            const isSelected = selectedMessage?.id === message.id
-            const isUnread = message.labelIds.includes("UNREAD")
+          <>
+            {messages.map((message) => {
+              const from = getHeader(message, "from")
+              const subject = getHeader(message, "subject")
+              const date = formatDate(message.internalDate)
+              const isSelected = selectedMessage?.id === message.id
+              const isUnread = message.labelIds?.includes("UNREAD")
 
-            // Extract sender name and email
-            const senderMatch = from.match(/^(.*?)\s*<(.+)>$/)
-            const senderName = senderMatch ? senderMatch[1].replace(/"/g, "") : from
-            const senderEmail = senderMatch ? senderMatch[2] : from
+              // Extract sender name and email
+              const senderMatch = from.match(/^(.*?)\s*<(.+)>$/)
+              const senderName = senderMatch ? senderMatch[1].replace(/"/g, "") : from
+              const senderEmail = senderMatch ? senderMatch[2] : from
 
-            // Get first letter for avatar
-            const avatarLetter = (senderName || senderEmail).charAt(0).toUpperCase()
+              // Get first letter for avatar
+              const avatarLetter = (senderName || senderEmail).charAt(0).toUpperCase()
 
-            // Generate color based on sender
-            const colors = [
-              "bg-red-500",
-              "bg-blue-500",
-              "bg-green-500",
-              "bg-yellow-500",
-              "bg-purple-500",
-              "bg-pink-500",
-              "bg-indigo-500",
-            ]
-            const colorIndex = (senderEmail.charCodeAt(0) + senderEmail.charCodeAt(1)) % colors.length
-            const avatarColor = colors[colorIndex]
+              // Generate color based on sender
+              const colors = [
+                "bg-red-500",
+                "bg-blue-500",
+                "bg-green-500",
+                "bg-yellow-500",
+                "bg-purple-500",
+                "bg-pink-500",
+                "bg-indigo-500",
+              ]
+              const colorIndex = (senderEmail.charCodeAt(0) + senderEmail.charCodeAt(1)) % colors.length
+              const avatarColor = colors[colorIndex]
 
-            return (
-              <button
-                key={message.id}
-                onClick={() => onSelectMessage(message)}
-                className={`w-full border-b border-white/5 p-4 text-left transition-colors ${
-                  isSelected ? "bg-white/10" : "hover:bg-white/5"
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`flex-shrink-0 w-10 h-10 rounded-full ${avatarColor} flex items-center justify-center text-white font-semibold text-sm`}
-                  >
-                    {avatarLetter}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <p
-                        className={`truncate text-sm ${isUnread ? "font-semibold text-white" : "font-normal text-gray-300"}`}
-                      >
-                        {senderName || senderEmail}
-                      </p>
-                      <span className="text-xs text-gray-500 flex-shrink-0">{date}</span>
+              return (
+                <button
+                  key={message.id}
+                  onClick={() => onSelectMessage(message)}
+                  className={`w-full border-b border-white/5 p-4 text-left transition-colors ${
+                    isSelected ? "bg-white/10" : "hover:bg-white/5"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`flex-shrink-0 w-10 h-10 rounded-full ${avatarColor} flex items-center justify-center text-white font-semibold text-sm`}
+                    >
+                      {avatarLetter}
                     </div>
-                    <p className={`truncate text-sm mb-1 ${isUnread ? "font-medium text-white" : "text-gray-400"}`}>
-                      {subject || "(no subject)"}
-                    </p>
-                    <p className="truncate text-xs text-gray-500">{message.snippet}</p>
-                  </div>
 
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      // TODO: Implement star functionality
-                    }}
-                    className="flex-shrink-0 text-gray-500 hover:text-yellow-400 transition-colors"
-                  >
-                    <Star className="h-4 w-4" />
-                  </button>
-                </div>
-              </button>
-            )
-          })
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <p
+                          className={`truncate text-sm ${isUnread ? "font-semibold text-white" : "font-normal text-gray-300"}`}
+                        >
+                          {senderName || senderEmail}
+                        </p>
+                        <span className="text-xs text-gray-500 flex-shrink-0">{date}</span>
+                      </div>
+                      <p className={`truncate text-sm mb-1 ${isUnread ? "font-medium text-white" : "text-gray-400"}`}>
+                        {subject || "(no subject)"}
+                      </p>
+                      <p className="truncate text-xs text-gray-500">{message.snippet}</p>
+                    </div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        // TODO: Implement star functionality
+                      }}
+                      className="flex-shrink-0 text-gray-500 hover:text-yellow-400 transition-colors"
+                    >
+                      <Star className="h-4 w-4" />
+                    </button>
+                  </div>
+                </button>
+              )
+            })}
+            {loadingMore && (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

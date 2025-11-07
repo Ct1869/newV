@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { InboxSidebar } from "@/components/inbox/inbox-sidebar"
 import { EmailList } from "@/components/inbox/email-list"
 import { EmailDetail } from "@/components/inbox/email-detail"
@@ -19,6 +19,8 @@ export default function InboxPage() {
   const [isComposeOpen, setIsComposeOpen] = useState(false)
   const [currentFolder, setCurrentFolder] = useState<EmailFolder>("inbox")
   const [searchQuery, setSearchQuery] = useState("")
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [replyTo, setReplyTo] = useState<
     | {
         to: string
@@ -30,11 +32,12 @@ export default function InboxPage() {
   >(undefined)
   const router = useRouter()
 
-  useEffect(() => {
-    async function fetchMessages() {
+  const fetchMessages = useCallback(
+    async (pageToken?: string) => {
       try {
-        console.log("[v0] Fetching messages...")
-        const response = await fetch("/api/gmail/messages")
+        console.log("[v0] Fetching messages...", pageToken ? `(page token: ${pageToken})` : "(initial load)")
+        const url = pageToken ? `/api/gmail/messages?pageToken=${pageToken}` : "/api/gmail/messages"
+        const response = await fetch(url)
 
         if (response.status === 401) {
           console.log("[v0] Not authenticated, redirecting to home")
@@ -49,23 +52,40 @@ export default function InboxPage() {
 
         const data = await response.json()
         console.log("[v0] Messages fetched:", data.messages?.length || 0)
-        setAllMessages(data.messages || [])
-        setMessages(data.messages || [])
 
-        // Select first message by default
-        if (data.messages && data.messages.length > 0) {
-          setSelectedMessage(data.messages[0])
+        if (pageToken) {
+          setAllMessages((prev) => [...prev, ...(data.messages || [])])
+        } else {
+          setAllMessages(data.messages || [])
+          if (data.messages && data.messages.length > 0) {
+            setSelectedMessage(data.messages[0])
+          }
         }
+
+        setNextPageToken(data.nextPageToken || null)
       } catch (err) {
         console.error("[v0] Error fetching messages:", err)
         setError(err instanceof Error ? err.message : "Failed to load messages")
-      } finally {
-        setLoading(false)
       }
-    }
+    },
+    [router],
+  )
 
-    fetchMessages()
-  }, [router])
+  useEffect(() => {
+    async function initialFetch() {
+      setLoading(true)
+      await fetchMessages()
+      setLoading(false)
+    }
+    initialFetch()
+  }, [fetchMessages])
+
+  const loadMoreMessages = async () => {
+    if (!nextPageToken || loadingMore) return
+    setLoadingMore(true)
+    await fetchMessages(nextPageToken)
+    setLoadingMore(false)
+  }
 
   useEffect(() => {
     let filtered = allMessages
@@ -223,6 +243,9 @@ export default function InboxPage() {
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           currentFolder={currentFolder}
+          onLoadMore={loadMoreMessages}
+          hasMore={!!nextPageToken}
+          loadingMore={loadingMore}
         />
         <EmailDetail
           message={selectedMessage}

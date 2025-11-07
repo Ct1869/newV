@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   }
 
   const searchParams = request.nextUrl.searchParams
-  const maxResults = searchParams.get("maxResults") || "50"
+  const maxResults = searchParams.get("maxResults") || "100"
   const pageToken = searchParams.get("pageToken")
 
   try {
@@ -36,11 +36,10 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json()
 
-    // Fetch full message details for each message
     const messagesWithDetails = await Promise.all(
       (data.messages || []).map(async (message: { id: string }) => {
         const detailResponse = await fetch(
-          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=full`,
+          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`,
           {
             headers: {
               Authorization: `Bearer ${accessToken}`,
@@ -54,6 +53,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       messages: messagesWithDetails,
       nextPageToken: data.nextPageToken,
+      resultSizeEstimate: data.resultSizeEstimate,
     })
   } catch (error) {
     console.error("[v0] Error fetching messages:", error)
