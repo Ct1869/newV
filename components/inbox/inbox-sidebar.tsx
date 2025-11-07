@@ -17,6 +17,7 @@ interface InboxSidebarProps {
   onCompose: () => void
   currentFolder: EmailFolder
   onFolderChange: (folder: EmailFolder) => void
+  onAccountSwitch: (email: string) => void
   messageCounts: {
     inbox: number
     drafts: number
@@ -28,7 +29,13 @@ interface InboxSidebarProps {
   }
 }
 
-export function InboxSidebar({ onCompose, currentFolder, onFolderChange, messageCounts }: InboxSidebarProps) {
+export function InboxSidebar({
+  onCompose,
+  currentFolder,
+  onFolderChange,
+  onAccountSwitch,
+  messageCounts,
+}: InboxSidebarProps) {
   const [showLabels, setShowLabels] = useState(false)
   const [showAddAccount, setShowAddAccount] = useState(false)
   const [accounts, setAccounts] = useState<GmailAccount[]>([])
@@ -53,6 +60,8 @@ export function InboxSidebar({ onCompose, currentFolder, onFolderChange, message
 
   const handleSwitchAccount = async (account: GmailAccount) => {
     try {
+      console.log("[v0] Switching to account:", account.email)
+
       const response = await fetch("/api/auth/accounts/switch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -61,7 +70,7 @@ export function InboxSidebar({ onCompose, currentFolder, onFolderChange, message
 
       if (response.ok) {
         setCurrentAccount(account)
-        window.location.reload() // Reload to fetch new account's emails
+        onAccountSwitch(account.email)
       }
     } catch (error) {
       console.error("[v0] Error switching account:", error)

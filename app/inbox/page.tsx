@@ -21,6 +21,7 @@ export default function InboxPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [nextPageToken, setNextPageToken] = useState<string | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [currentAccountEmail, setCurrentAccountEmail] = useState<string | null>(null)
   const [replyTo, setReplyTo] = useState<
     | {
         to: string
@@ -106,6 +107,8 @@ export default function InboxPage() {
       console.log("[v0] Manual refresh triggered")
       setLoading(true)
       setAllMessages([])
+      setMessages([])
+      setSelectedMessage(null)
       setNextPageToken(null)
       await fetchMessages()
     } catch (err) {
@@ -114,6 +117,24 @@ export default function InboxPage() {
       setLoading(false)
     }
   }
+
+  const handleAccountSwitch = useCallback((newAccountEmail: string) => {
+    console.log("[v0] Account switched to:", newAccountEmail)
+    setCurrentAccountEmail(newAccountEmail)
+    setAllMessages([])
+    setMessages([])
+    setSelectedMessage(null)
+    setNextPageToken(null)
+    setLoading(true)
+    // Fetch will be triggered by the effect below
+  }, [])
+
+  useEffect(() => {
+    if (currentAccountEmail) {
+      console.log("[v0] Refetching for new account:", currentAccountEmail)
+      fetchMessages()
+    }
+  }, [currentAccountEmail, fetchMessages])
 
   useEffect(() => {
     try {
@@ -300,6 +321,7 @@ export default function InboxPage() {
           onCompose={handleCompose}
           currentFolder={currentFolder}
           onFolderChange={setCurrentFolder}
+          onAccountSwitch={handleAccountSwitch}
           messageCounts={{
             inbox: allMessages.filter((m) => m.labelIds?.includes("INBOX")).length,
             drafts: allMessages.filter((m) => m.labelIds?.includes("DRAFT")).length,
