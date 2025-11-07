@@ -30,13 +30,24 @@ export default function InboxPage() {
           url.searchParams.set("pageToken", pageToken)
         }
 
+        console.log("[v0] Fetching emails from:", url.toString())
         const response = await fetch(url.toString())
+        console.log("[v0] Response status:", response.status)
+
+        if (response.status === 401) {
+          console.error("[v0] Not authenticated, redirecting to login")
+          window.location.href = "/"
+          return
+        }
 
         if (!response.ok) {
-          throw new Error("Failed to fetch emails")
+          const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
+          console.error("[v0] API error response:", errorData)
+          throw new Error(errorData.error || "Failed to fetch emails")
         }
 
         const data = await response.json()
+        console.log("[v0] Fetched messages count:", data.messages?.length || 0)
 
         if (reset) {
           setEmails(data.messages || [])
