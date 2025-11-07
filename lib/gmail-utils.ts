@@ -34,12 +34,25 @@ export function getMessageBody(message: GmailMessage): string {
     if (message.payload?.body?.data) {
       body = message.payload.body.data
     } else if (message.payload?.parts) {
-      // Look for text/plain or text/html parts
-      const textPart = message.payload.parts.find(
-        (part) => part.mimeType === "text/plain" || part.mimeType === "text/html",
-      )
-      if (textPart?.body?.data) {
+      // Prefer HTML over plain text for better image support
+      const htmlPart = message.payload.parts.find((part) => part.mimeType === "text/html")
+      const textPart = message.payload.parts.find((part) => part.mimeType === "text/plain")
+
+      if (htmlPart?.body?.data) {
+        body = htmlPart.body.data
+      } else if (textPart?.body?.data) {
         body = textPart.body.data
+      } else {
+        // Check nested multipart structures
+        for (const part of message.payload.parts) {
+          if (part.parts) {
+            const nestedHtml = part.parts.find((p) => p.mimeType === "text/html")
+            if (nestedHtml?.body?.data) {
+              body = nestedHtml.body.data
+              break
+            }
+          }
+        }
       }
     }
 

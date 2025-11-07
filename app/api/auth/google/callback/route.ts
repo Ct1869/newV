@@ -44,23 +44,59 @@ export async function GET(request: NextRequest) {
 
     const tokens = await tokenResponse.json()
 
-    // Store tokens in cookies
+    const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: {
+        Authorization: `Bearer ${tokens.access_token}`,
+      },
+    })
+
+    if (!userInfoResponse.ok) {
+      throw new Error("Failed to get user info")
+    }
+
+    const userInfo = await userInfoResponse.json()
+
     const cookieStore = await cookies()
-    cookieStore.set("access_token", tokens.access_token, {
+
+    // Get existing accounts
+    const existingAccountsStr = cookieStore.get("gmail_accounts")?.value
+    const existingAccounts = existingAccountsStr ? JSON.parse(existingAccountsStr) : []
+
+    // Create new account entry
+    const newAccount = {
+      email: userInfo.email,
+      name: userInfo.name,
+      picture: userInfo.picture,
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expires_at: Date.now() + tokens.expires_in * 1000,
+    }
+
+    // Check if account already exists
+    const existingIndex = existingAccounts.findIndex((acc: any) => acc.email === userInfo.email)
+    if (existingIndex >= 0) {
+      // Update existing account
+      existingAccounts[existingIndex] = newAccount
+    } else {
+      // Add new account
+      existingAccounts.push(newAccount)
+    }
+
+    // Store all accounts
+    cookieStore.set("gmail_accounts", JSON.stringify(existingAccounts), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: tokens.expires_in,
+      maxAge: 60 * 60 * 24 * 365, // 1 year
     })
 
-    if (tokens.refresh_token) {
-      cookieStore.set("refresh_token", tokens.refresh_token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 60 * 60 * 24 * 365, // 1 year
-      })
-    }
+    // Set active account to the newly added one
+    cookieStore.set("active_account", userInfo.email, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 365,
+    })
 
     // Redirect to inbox
     return NextResponse.redirect(new URL("/inbox", request.url))

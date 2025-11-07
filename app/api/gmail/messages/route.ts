@@ -3,7 +3,62 @@ import { cookies } from "next/headers"
 
 async function getAccessToken() {
   const cookieStore = await cookies()
-  return cookieStore.get("access_token")?.value
+  const activeAccountEmail = cookieStore.get("active_account")?.value
+  const accountsStr = cookieStore.get("gmail_accounts")?.value
+
+  if (!activeAccountEmail || !accountsStr) {
+    return null
+  }
+
+  const accounts = JSON.parse(accountsStr)
+  const activeAccount = accounts.find((acc: any) => acc.email === activeAccountEmail)
+
+  if (!activeAccount) {
+    return null
+  }
+
+  // Check if token is expired
+  if (activeAccount.expires_at && activeAccount.expires_at < Date.now()) {
+    // Token expired, need to refresh
+    if (activeAccount.refresh_token) {
+      try {
+        const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            client_id: process.env.GOOGLE_CLIENT_ID!,
+            client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+            refresh_token: activeAccount.refresh_token,
+            grant_type: "refresh_token",
+          }),
+        })
+
+        if (tokenResponse.ok) {
+          const tokens = await tokenResponse.json()
+          activeAccount.access_token = tokens.access_token
+          activeAccount.expires_at = Date.now() + tokens.expires_in * 1000
+
+          // Update stored account
+          const accountIndex = accounts.findIndex((acc: any) => acc.email === activeAccountEmail)
+          if (accountIndex >= 0) {
+            accounts[accountIndex] = activeAccount
+            cookieStore.set("gmail_accounts", JSON.stringify(accounts), {
+              httpOnly: true,
+              secure: process.env.NODE_ENV === "production",
+              sameSite: "lax",
+              maxAge: 60 * 60 * 24 * 365,
+            })
+          }
+        }
+      } catch (error) {
+        console.error("[v0] Error refreshing token:", error)
+      }
+    }
+  }
+
+  return activeAccount.access_token
 }
 
 export async function GET(request: NextRequest) {

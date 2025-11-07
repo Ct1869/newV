@@ -58,8 +58,15 @@ export function EmailDetail({ message, onReply, onArchive, onDelete, onMarkAsSpa
   const avatarColor = colors[colorIndex]
 
   const sanitizeEmailBody = (html: string) => {
-    // Allow external images to load
-    return html.replace(/src="cid:/g, 'data-cid="')
+    // Remove dangerous tags but preserve images
+    let sanitized = html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "")
+
+    // Ensure images can load from external sources
+    sanitized = sanitized.replace(/(<img[^>]+)src=/gi, '$1loading="lazy" src=')
+
+    return sanitized
   }
 
   return (
@@ -132,7 +139,11 @@ export function EmailDetail({ message, onReply, onArchive, onDelete, onMarkAsSpa
 
       <div className="flex-1 overflow-y-auto p-6">
         <div
-          className="prose prose-invert max-w-none text-gray-300 leading-relaxed [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg"
+          className="prose prose-invert max-w-none text-gray-300 leading-relaxed 
+            [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-4
+            [&_a]:text-blue-400 [&_a]:underline [&_a:hover]:text-blue-300
+            [&_table]:border-collapse [&_td]:border [&_td]:border-white/10 [&_td]:p-2
+            [&_blockquote]:border-l-4 [&_blockquote]:border-white/20 [&_blockquote]:pl-4 [&_blockquote]:italic"
           dangerouslySetInnerHTML={{ __html: sanitizeEmailBody(body) }}
         />
       </div>
